@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>廠內設備免登入智慧點檢系統 v2.0</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  
+  <style>
+    :root {
+      /* 2.5D 立體色彩定義 */
+      --primary-grad: linear-gradient(135deg, #2c3e50 0%, #1a252f 100%); /* 頂級鋼鐵黑橫幅 */
+      --bg-color: #eef2f5; /* 現場抗疲勞淺灰底色 */
+      --card-bg: #ffffff;
+      
+      --text-main: #2c3e50;
+      --text-sub: #7f8c8d;
+      
+      /* 三大狀態色彩管理 */
+      --btn-blue: #3498db;    /* 製程藍 */
+      --success-color: #2ecc71; /* 安全綠 (OK) */
+      --danger-color: #e74c3c;  /* 警示紅 (NG) */
+      --warning-color: #f39c12; /* 智慧橘 */
+      
+      /* 2.5D 核心立體陰影：外陰影營造浮起感，內陰影(inset)營造底部打光厚度 */
+      --shadow-25d-card: 0 10px 20px rgba(44,62,80,0.06), 0 6px 12px rgba(44,62,80,0.1), inset 0 -4px 0 rgba(0,0,0,0.06);
+      --shadow-25d-btn-blue: 0 5px 10px rgba(52,152,219,0.3), inset 0 -4px 0 rgba(0,0,0,0.2);
+      --shadow-25d-btn-green: 0 5px 10px rgba(46,204,113,0.3), inset 0 -4px 0 rgba(0,0,0,0.2);
+      
+      --border-radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Noto Sans TC', sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding: 12px; padding-bottom: 30px; }
+
+    /* 1. 頂部 2.5D 立體智慧橫幅 */
+    .header-banner {
+      background: var(--primary-grad);
+      color: white;
+      padding: 20px 16px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15), inset 0 -4px 0 rgba(0,0,0,0.3);
+      margin-bottom: 16px;
+    }
+    .header-banner h1 { font-size: 18pt; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .header-banner p { font-size: 10pt; opacity: 0.8; margin-top: 4px; letter-spacing: 0.5px; }
+
+    /* 2. 三大功能分頁切換紐 (立體切換中控台) */
+    .tab-control-panel {
+      display: flex;
+      background: #dcdde1;
+      padding: 5px;
+      border-radius: 14px;
+      box-shadow: inset 0 3px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 12px 5px;
+      font-size: 10.5pt;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text-sub);
+      border-radius: 10px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .tab-btn .material-icons { font-size: 16pt; }
+    
+    /* 激活分頁時的 2.5D 立體突起外觀 */
+    .tab-btn.active {
+      background: white;
+      color: var(--text-main);
+      font-weight: 700;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.08), inset 0 -2px 0 rgba(0,0,0,0.05);
+    }
+
+    /* 3. 2.5D 標準卡片面板 */
+    .card-panel {
+      background: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 20px 16px;
+      box-shadow: var(--shadow-25d-card);
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.8);
+    }
+    .panel-title {
+      font-size: 12pt;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 5px solid var(--btn-blue);
+      padding-left: 8px;
+    }
+
+    /* 4. 全域通用防護遮罩 (Loading) */
+    .loading-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(44, 62, 80, 0.6);
+      backdrop-filter: blur(5px);
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 12pt;
+      font-weight: 500;
+      visibility: hidden;
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+    .loading-overlay.active { visibility: visible; opacity: 1; }
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 暫時預留的分頁容器 */
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="header-banner">
+    <h1><span class="material-icons">precision_manufacturing</span> 智慧點檢中控台</h1>
+    <p>現場自主自訂功能版 • 2.5D 高質感看板</p>
+  </div>
+
+  <div class="tab-control-panel">
+    <div class="tab-btn active" id="tab-scan" onclick="switchTab('scan')">
+      <span class="material-icons">qr_code_scanner</span>手機掃碼點檢
+    </div>
+    <div class="tab-btn" id="tab-history" onclick="switchTab('history')">
+      <span class="material-icons">history_edu</span>歷史點檢履歷
+    </div>
+    <div class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">
+      <span class="material-icons">analytics</span>月度趨勢分析
+    </div>
+  </div>
+
+  <div id="sec-scan" class="page-section active">
+    <div class="card-panel">
+      <div class="panel-title"><span class="material-icons">photo_camera</span> 智慧掃描模組</div>
+      <p style="color: var(--text-sub); font-size: 10pt;">[相機與表單輸入內容將在第三步完整嵌入]</p>
+    </div>
+  </div>
+
+  <div id="sec-history" class="page-section">
+    <div class="card-panel">
+      <div class="panel-title"><span class="material-icons">assignment</span> 廠內即時點檢履歷確認</div>
+      <p style="color: var(--text-sub); font-size: 10pt;">[倒序20筆歷史卡片與G欄對接將在第四步完整嵌入]</p>
+    </div>
+  </div>
+
+  <div id="sec-analysis" class="page-section">
+    <div class="card-panel">
+      <div class="panel-title"><span class="material-icons">bar_chart</span> 當月現場製程大數據分析</div>
+      <p style="color: var(--text-sub); font-size: 10pt;">[月份切換器、KPI大卡片與三大維度排行將在第四步完整嵌入]</p>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="global-overlay">
+    <div class="spinner"></div>
+    <div id="overlay-text">雲端資料對接同步中...</div>
+  </div>
+
+  <script>
+    // 將教練發布的 GAS 網址精準鎖定為全域核心變數
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbviwuLSWsZg_JTR2GbnLGX8UeSWQTsJFd4KFRhwKRRVVCT6KVmFZj6S7si-4J7eK_xKg/exec";
+    
+    // 全域 master 資料儲存器
+    let systemMasterData = null;
+
+    // 2.5D 中控台分頁流暢切換邏輯
+    function switchTab(targetPage) {
+      // 1. 先隱藏所有頁面區塊，移除按鈕激活狀態
+      document.querySelectorAll('.page-section').forEach(sec => sec.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      
+      // 2. 顯示目標頁面，激活對應按鈕
+      if(targetPage === 'scan') {
+        document.getElementById('sec-scan').classList.add('active');
+        document.getElementById('tab-scan').classList.add('active');
+      } else if(targetPage === 'history') {
+        document.getElementById('sec-history').classList.add('active');
+        document.getElementById('tab-history').classList.add('active');
+      } else if(targetPage === 'analysis') {
+        document.getElementById('sec-analysis').classList.add('active');
+        document.getElementById('tab-analysis').classList.add('active');
+      }
+    }
+
+    // 全域防護遮罩控制
+    function showLoading(text) {
+      document.getElementById('overlay-text').textContent = text;
+      document.getElementById('global-overlay').classList.add('active');
+    }
+    function hideLoading() {
+      document.getElementById('global-overlay').classList.remove('active');
+    }
+  </script>
+</body>
+</html>
